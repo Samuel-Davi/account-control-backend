@@ -105,6 +105,14 @@ app.post('/auth', async (request, reply) => {
 
     const token = await setToken(user, timeToken)
 
+    reply.setCookie("account_token", token, {
+        httpOnly: true,
+        secure: true, // Importante para ambientes HTTPS (Render usa HTTPS)
+        sameSite: "none", // Permite envio entre domínios diferentes
+        path: "/",
+        maxAge: timeToken === "1h"? 60*60 : 60*60*24*30,
+    })
+
     user.timeToken = timeToken
     user.token = token
 
