@@ -47,6 +47,7 @@ app.get('/getUser', async (request, reply) => {
 
     try {
         // Obtém o token do cookie
+        console.log("cookies: ", request.cookies)
         const token = request.cookies.account_token
     
         //console.log("Token recebido no backend:", token);
@@ -105,13 +106,16 @@ app.post('/auth', async (request, reply) => {
 
     const token = await setToken(user, timeToken)
 
+    console.log("setando cookie...")
     reply.setCookie("account_token", token, {
         httpOnly: true,
-        secure: true, // Importante para ambientes HTTPS (Render usa HTTPS)
         sameSite: "none", // Permite envio entre domínios diferentes
         path: "/",
         maxAge: timeToken === "1h"? 60*60 : 60*60*24*30,
     })
+
+    
+
 
     user.timeToken = timeToken
     user.token = token
