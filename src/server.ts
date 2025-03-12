@@ -1,5 +1,6 @@
 import fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
+import fastifyCors from "@fastify/cors";
 import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
@@ -24,6 +25,13 @@ type User = {
 interface DecodedToken {
     id: number;
 }
+
+app.register(fastifyCors, {
+    origin: 'http://localhost:3000', // Permite apenas o Next.js no localhost
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true // Permite envio de cookies e autenticação
+});
+  
 
 app.get('/', (request, reply) => {
     return reply.status(201).send({ message: 'Hello, World!' })
