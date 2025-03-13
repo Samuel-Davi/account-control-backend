@@ -1,10 +1,11 @@
 import fastify from "fastify";
-import fastifyCookie from "@fastify/cookie";
-import fastifyCors from "@fastify/cors";
+import cookie from "@fastify/cookie";
+import cors from "@fastify/cors";
 import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import { Decimal } from "@prisma/client/runtime/library";
+import { decode } from "punycode";
 
 const app = fastify()
 
@@ -29,13 +30,15 @@ interface DecodedToken {
 
 
 
-app.register(fastifyCors, {
+app.register(cors, {
     origin: 'http://localhost:3000', // Permite apenas o Next.js no localhost
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true // Permite envio de cookies e autenticação
 });
 
-app.register(fastifyCookie);
+app.register(cookie, {
+    hook: "onRequest",
+});
   
 
 app.get('/', (request, reply) => {
@@ -43,34 +46,36 @@ app.get('/', (request, reply) => {
 })
 
 app.get('/getUser', async (request, reply) => {
-    const SECRET = "chave_super_secreta"; // 🔥 Alterar para variável de ambiente
 
     try {
         // Obtém o token do cookie
-        console.log("cookies: ", request.cookies)
-        const token = request.cookies.account_token
-    
-        //console.log("Token recebido no backend:", token);
-        const users:Array<User> = await prisma.users.findMany()
-    
+        const authHeader = request.headers.authorization
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return reply.status(401).send({ error: 'Unauthorized' });
+        }
+
+        const token = authHeader.split(' ')[1]
         if (!token) throw new Error("Token não encontrado");
     
         // Verifica e decodifica o token
-        const decoded = jwt.verify(token, SECRET) as DecodedToken;
+        const decoded = jwt.verify(token, SECRET) as DecodedToken
     
         if (!decoded || !decoded.id) throw new Error("Token inválido");
     
-        const user: User | undefined = users.find(u => u.id === decoded.id)
+        const user = await prisma.users.findUnique({
+            where: {
+                id: decoded.id,
+            }
+        })
     
         return reply.status(200).send({ user });
       } catch (error) {
-        console.log(error)
+        console.log("ta aqui o erro: ", error)
         return reply.status(401).send(({ error: "Não autorizado" }))
       }
-
-
-
 })
+
 
 //auth function
 const setToken = async (mockUser:User, timeToken:string) => {
@@ -106,16 +111,6 @@ app.post('/auth', async (request, reply) => {
 
     const token = await setToken(user, timeToken)
 
-    console.log("setando cookie...")
-    reply.setCookie("account_token", token, {
-        httpOnly: true,
-        sameSite: "none", // Permite envio entre domínios diferentes
-        path: "/",
-        maxAge: timeToken === "1h"? 60*60 : 60*60*24*30,
-    })
-
-    
-
 
     user.timeToken = timeToken
     user.token = token
@@ -125,9 +120,10 @@ app.post('/auth', async (request, reply) => {
 })
 
 //calculaSaldo functions
-async function calculaGastos(){
+async function calculaGastos(id: number){
     const gastos = await prisma.transactions.findMany({
         where:{
+            user_id: id,
             categories: {
                 type: 'withdrawal'
             }
@@ -140,9 +136,10 @@ async function calculaGastos(){
     return valor.toNumber()
 }
 
-async function calculaDepositos(){
+async function calculaDepositos(id: number){
     const depositos = await prisma.transactions.findMany({
         where:{
+            user_id: id,
             categories: {
                 type: 'deposit'
             }
@@ -158,9 +155,24 @@ async function calculaDepositos(){
 
 app.get('/calculaSaldo', async (request, reply) => {
     try {
+        const authHeader = request.headers.authorization
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return reply.status(401).send({ error: 'Unauthorized' });
+        }
+
+        const token = authHeader.split(' ')[1]
+        if (!token) throw new Error("Token não encontrado");
+    
+        // Verifica e decodifica o token
+        const decoded = jwt.verify(token, SECRET) as DecodedToken;
+        console.log(decoded.id)
+    
+        if (!decoded || !decoded.id) throw new Error("Token inválido");
+
         console.log("calculando saldo...")
-        const gastos:number = await calculaGastos()
-        const depositos:number = await calculaDepositos()
+        const gastos:number = await calculaGastos(decoded.id)
+        const depositos:number = await calculaDepositos(decoded.id)
         const saldo:number = depositos-gastos
         console.log("saldo: ", saldo)
         return reply.status(200).send({ saldo });
@@ -172,13 +184,36 @@ app.get('/calculaSaldo', async (request, reply) => {
 
 //transacoes
 app.get('/getTransactions', async (request, reply) => {
-    const transactions = await prisma.transactions.findMany({
-        orderBy: {
-            transaction_date: 'desc'
+
+    try{
+        const authHeader = request.headers.authorization
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return reply.status(401).send({ error: 'Unauthorized' });
         }
-    })
-    //console.log(transactions)
-    return reply.status(200).send({ transactions })
+
+        const token = authHeader.split(' ')[1]
+        if (!token) throw new Error("Token não encontrado");
+    
+        // Verifica e decodifica o token
+        const decoded = jwt.verify(token, SECRET) as DecodedToken;
+    
+        if (!decoded || !decoded.id) throw new Error("Token inválido");
+
+        const transactions = await prisma.transactions.findMany({
+            where:{
+                user_id: decoded.id
+            },
+            orderBy: {
+                transaction_date: 'desc'
+            }
+        })
+        //console.log(transactions)
+        return reply.status(200).send({ transactions })
+    }catch(error){
+        console.error('Erro ao acessar o banco de dados:', error);
+        return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
 })
 
 app.post('/createTransaction', async (request, reply) => {
