@@ -300,9 +300,14 @@ app.delete('/deleteTransaction', async (request, reply) => {
 //categories
 app.get('/getCategories', async (request, reply) => {
     console.log('Requisição de categorias recebida');
-    const categories = await prisma.categories.findMany()
-    //console.log(categories)
-    return reply.status(200).send({ categories })
+    try{
+        const categories = await prisma.categories.findMany()
+        //console.log(categories)
+        return reply.status(200).send({ categories })
+    }catch(error){
+        console.error('Erro ao acessar o banco de dados:', error);
+        return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
 })
 
 app.listen({
