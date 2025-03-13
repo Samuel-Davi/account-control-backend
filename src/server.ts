@@ -31,7 +31,7 @@ interface DecodedToken {
 
 
 app.register(cors, {
-    origin: 'https://account-control.vercel.app', // Permite apenas o Next.js no localhost
+    origin: ['https://account-control.vercel.app', 'http://localhost:3000'], // Permite apenas o Next.js no localhost
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true // Permite envio de cookies e autenticação
 });
