@@ -5,7 +5,41 @@ import { z } from "zod";
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import { Decimal } from "@prisma/client/runtime/library";
-import { decode } from "punycode";
+import bcrypt from "bcrypt"
+import dotenv from "dotenv"
+import multipart from "@fastify/multipart";
+import { v2 as cloudinary } from 'cloudinary'
+import CloudinaryStorage from 'multer-storage-cloudinary'
+import multer from "fastify-multer";
+
+dotenv.config()
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+})
+
+const uploadImage = async (imagePath:string) => {
+
+    // Use the uploaded file's name as the asset's public ID and 
+    // allow overwriting the asset with new versions
+    const options = {
+      use_filename: true,
+      unique_filename: false,
+      overwrite: true,
+    };
+
+    try {
+      // Upload the image
+      const result = await cloudinary.uploader.upload(imagePath, options);
+      console.log(result);
+      return result.public_id;
+    } catch (error) {
+      console.error(error);
+    }
+};
+
 
 const app = fastify()
 
@@ -28,8 +62,6 @@ interface DecodedToken {
     id: number;
 }
 
-
-
 app.register(cors, {
     origin: ['https://account-control.vercel.app', 'http://localhost:3000'], // Permite apenas o Next.js no localhost
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -39,6 +71,8 @@ app.register(cors, {
 app.register(cookie, {
     hook: "onRequest",
 });
+
+app.register(multipart);
   
 
 app.get('/', (request, reply) => {
@@ -105,7 +139,9 @@ app.post('/auth', async (request, reply) => {
         return reply.status(404).send({error: "Usuário não encontrado"})
     }
 
-    if (email !== user.email || password !== user.password){
+    const isPasswordValid = user.password && bcrypt.compare(password, user.password);
+
+    if (email !== user.email || !isPasswordValid ){
         return reply.status(401).send({ error: "Usuário ou senha inválidos"});
     }
 
@@ -116,6 +152,37 @@ app.post('/auth', async (request, reply) => {
     user.token = token
 
     return reply.status(200).send({ user })
+
+})
+
+app.post('/signup', async (request, reply) => {
+    const userSchema = z.object({
+        email: z.string().email(),
+        password: z.string(),
+        name: z.string()
+    })
+
+    const {email, password, name} = userSchema.parse(request.body)
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    try{
+        await prisma.users.create({
+            data: {
+                email: email,
+                name: name,
+                password: hashedPassword,
+                avatarURL: ''
+            }
+        })
+    }catch(error){
+        console.log("Error ao cadastrar: ", error)
+        return reply.status(400).send({ error: "Erro ao cadastrar o usuário"})
+    }
+
+    
+    return reply.status(200).send({ message: "usuario criado com sucesso"})
+
 
 })
 
@@ -310,9 +377,35 @@ app.get('/getCategories', async (request, reply) => {
     }
 })
 
+//image
+app.post('/upload', async (request, reply) => {
+
+    try{
+        const authHeader = request.headers.authorization
+
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return reply.status(401).send({ error: 'Unauthorized' });
+        }
+
+        const token = authHeader.split(' ')[1]
+        if (!token) throw new Error("Token não encontrado");
+    
+        // Verifica e decodifica o token
+        const decoded = jwt.verify(token, SECRET) as DecodedToken
+
+        const data = await request.file()
+
+        
+    }catch(error){
+        console.error('Erro ao acessar o banco de dados:', error);
+        return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+
+})
+
 app.listen({
     host: '0.0.0.0',
-    port: process.env.PORT ? Number(process.env.PORT) : 3333
+    port: process.env.PORT ? Number(process.env.PORT) : 8080
 }).then(() => {
     console.log('http server running')
 })

@@ -15,6 +15,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/node": "^22.13.10",
     "prisma": "^6.5.0",
@@ -25,9 +26,20 @@
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.0.0",
+    "@fastify/multipart": "^9.0.3",
     "@prisma/client": "^6.5.0",
+    "axios": "^1.8.3",
+    "bcrypt": "^5.1.1",
+    "cloudinary": "^1.41.3",
+    "dotenv": "^16.4.7",
     "fastify": "^5.2.1",
+    "fastify-multer": "^2.0.3",
+    "fastify-plugin": "^5.0.1",
+    "form-auto-content": "^3.2.1",
+    "form-data": "^4.0.2",
     "jsonwebtoken": "^9.0.2",
+    "multer-storage-cloudinary": "^4.0.0",
+    "tap": "^21.1.0",
     "zod": "^3.24.2"
   }
 }
