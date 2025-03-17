@@ -7,38 +7,7 @@ import jwt from "jsonwebtoken";
 import { Decimal } from "@prisma/client/runtime/library";
 import bcrypt from "bcrypt"
 import dotenv from "dotenv"
-import multipart from "@fastify/multipart";
-import { v2 as cloudinary } from 'cloudinary'
-import CloudinaryStorage from 'multer-storage-cloudinary'
-import multer from "fastify-multer";
-
 dotenv.config()
-
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-})
-
-const uploadImage = async (imagePath:string) => {
-
-    // Use the uploaded file's name as the asset's public ID and 
-    // allow overwriting the asset with new versions
-    const options = {
-      use_filename: true,
-      unique_filename: false,
-      overwrite: true,
-    };
-
-    try {
-      // Upload the image
-      const result = await cloudinary.uploader.upload(imagePath, options);
-      console.log(result);
-      return result.public_id;
-    } catch (error) {
-      console.error(error);
-    }
-};
 
 
 const app = fastify()
@@ -51,7 +20,8 @@ const SECRET = "chave_super_secreta";
 type User = {
     id: number;
     email: string;
-    avatarURL: string;
+    avatarURL: string | null;
+    deleteURL: string | null;
     name: string;
     password?: string;
     timeToken?: string;
@@ -71,8 +41,6 @@ app.register(cors, {
 app.register(cookie, {
     hook: "onRequest",
 });
-
-app.register(multipart);
   
 
 app.get('/', (request, reply) => {
@@ -393,8 +361,23 @@ app.post('/upload', async (request, reply) => {
         // Verifica e decodifica o token
         const decoded = jwt.verify(token, SECRET) as DecodedToken
 
-        const data = await request.file()
+        const imageDataSchema = z.object({
+            userId: z.number(),
+            url : z.string()
+        })
+        
+        const { userId, url } = imageDataSchema.parse(request.body)
 
+        await prisma.users.update({
+            where: {
+                id: userId
+            },
+            data:{
+                avatarURL: url
+            }
+        })
+
+        reply.status(200)
         
     }catch(error){
         console.error('Erro ao acessar o banco de dados:', error);
