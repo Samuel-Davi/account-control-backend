@@ -107,10 +107,11 @@ app.post('/auth', async (request, reply) => {
         return reply.status(404).send({error: "Usuário não encontrado"})
     }
 
-    const isPasswordValid = user.password && bcrypt.compare(password, user.password);
+    const isPasswordValid = user.password && await bcrypt.compare(password, user.password);
+    //console.log(isPasswordValid?.valueOf())
 
     if (email !== user.email || !isPasswordValid ){
-        return reply.status(401).send({ error: "Usuário ou senha inválidos"});
+        return reply.status(404).send({ error: "Usuário ou senha inválidos"});
     }
 
     const token = await setToken(user, timeToken)
@@ -201,15 +202,15 @@ app.get('/calculaSaldo', async (request, reply) => {
     
         // Verifica e decodifica o token
         const decoded = jwt.verify(token, SECRET) as DecodedToken;
-        console.log(decoded.id)
+        //console.log(decoded.id)
     
         if (!decoded || !decoded.id) throw new Error("Token inválido");
 
-        console.log("calculando saldo...")
+        //console.log("calculando saldo...")
         const gastos:number = await calculaGastos(decoded.id)
         const depositos:number = await calculaDepositos(decoded.id)
         const saldo:number = depositos-gastos
-        console.log("saldo: ", saldo)
+        //console.log("saldo: ", saldo)
         return reply.status(200).send({ saldo });
     } catch (error) {
         console.error('Erro ao acessar o banco de dados:', error);
@@ -334,7 +335,7 @@ app.delete('/deleteTransaction', async (request, reply) => {
 
 //categories
 app.get('/getCategories', async (request, reply) => {
-    console.log('Requisição de categorias recebida');
+    //console.log('Requisição de categorias recebida');
     try{
         const categories = await prisma.categories.findMany()
         //console.log(categories)
@@ -363,17 +364,20 @@ app.post('/upload', async (request, reply) => {
 
         const imageDataSchema = z.object({
             userId: z.number(),
-            url : z.string()
+            url : z.string(),
+            deleteURL: z.string()
         })
         
-        const { userId, url } = imageDataSchema.parse(request.body)
+        const {deleteURL, userId, url } = imageDataSchema.parse(request.body)
+        console.log(deleteURL)
 
         await prisma.users.update({
             where: {
                 id: userId
             },
             data:{
-                avatarURL: url
+                avatarURL: url,
+                deleteURL: deleteURL
             }
         })
 
