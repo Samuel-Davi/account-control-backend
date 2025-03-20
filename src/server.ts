@@ -348,6 +348,7 @@ app.get('/getCategories', async (request, reply) => {
 
 //image
 app.post('/upload', async (request, reply) => {
+    console.log('uploading image...')
 
     try{
         const authHeader = request.headers.authorization
