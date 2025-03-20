@@ -346,6 +346,25 @@ app.get('/getCategories', async (request, reply) => {
     }
 })
 
+app.get('/getCategoriesByType', async (request, reply) => {
+    const { type } = request.query as { type?: number }
+
+    const typeCategories = type?.toString() === "0" ? "withdrawal" : "deposit"
+
+    try{
+        const categories = await prisma.categories.findMany({
+            where: {
+                type: typeCategories
+            }
+        })
+        //console.log(categories)
+        return reply.status(200).send({ categories })
+    }catch(error){
+        console.error('Erro ao acessar o banco de dados:', error);
+        return reply.status(500).send({ error: 'Erro interno do servidor' });
+    }
+})
+
 //image
 app.post('/upload', async (request, reply) => {
     console.log('uploading image...')
