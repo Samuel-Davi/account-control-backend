@@ -7,8 +7,19 @@ import jwt from "jsonwebtoken";
 import { Decimal } from "@prisma/client/runtime/library";
 import bcrypt from "bcrypt"
 import dotenv from "dotenv"
+import nodemailer from 'nodemailer'
+
 dotenv.config()
 
+const transport = nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+        user: 'samueldavi.0907@gmail.com',
+        pass: process.env.GMAIL_PASSWORD
+    }
+})
 
 const app = fastify()
 
@@ -152,6 +163,56 @@ app.post('/signup', async (request, reply) => {
     
     return reply.status(200).send({ message: "usuario criado com sucesso"})
 
+
+})
+
+app.post('/send-email', async (request, reply) => {
+    const emailSchema = z.object({
+        email: z.string().email(),
+        realCode: z.string()
+    })
+
+    const { email, realCode } = emailSchema.parse(request.body)
+
+    try {
+        transport.sendMail({
+            from: 'Roxyall Control <samueldavi.0907@gmail.com>',
+            to: email,
+            subject: 'Código de redefinição de senha',
+            html: `<h1>Obrigado por usar Roxyall Control</h1><br />
+                    <p><strong>Aqui está o codigo de redefinição de senha: ${realCode}<strong/></p>`,
+            text: `Olá, este é seu código de confirmação: ${realCode}`
+        }).then(() => console.log("email enviado"))
+
+    } catch (error) {
+    console.log(error);
+    return reply.status(500).send({ success: false, error });
+    }
+})
+
+app.post('/reset-password', async (request, reply) => {
+    try{
+        const passwordSchema = z.object({
+            password: z.string(),
+            email: z.string().email(),
+        })
+    
+        const { password, email } = passwordSchema.parse(request.body)
+    
+        const edit = await prisma.users.update({
+            where: {
+                email: email,
+            },
+            data: {
+                password: password,
+            }
+        })
+
+        return reply.status(200).send({ message: "Senha atualizada com sucesso"})
+    }catch(error){
+        console.log("error:", error);
+        return reply.status(400).send({message: "erro ao atualizar senha"})
+    }
 
 })
 
