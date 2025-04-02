@@ -198,15 +198,21 @@ app.post('/reset-password', async (request, reply) => {
         })
     
         const { password, email } = passwordSchema.parse(request.body)
+
+        const hashedPassword = await bcrypt.hash(password, 10);
     
         const edit = await prisma.users.update({
             where: {
                 email: email,
             },
             data: {
-                password: password,
+                password: hashedPassword,
             }
         })
+
+        if(edit.password === password) {
+            console.log("senha atualizou")
+        }
 
         return reply.status(200).send({ message: "Senha atualizada com sucesso"})
     }catch(error){
