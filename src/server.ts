@@ -173,6 +173,7 @@ app.post('/send-email', async (request, reply) => {
     })
 
     const { email, realCode } = emailSchema.parse(request.body)
+    console.log("mandando email...")
 
     try {
         transport.sendMail({
