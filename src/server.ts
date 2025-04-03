@@ -223,6 +223,43 @@ app.post('/reset-password', async (request, reply) => {
 
 })
 
+app.post('/get-jwt', async (request, reply) => {
+    const jwtSchema = z.object({
+        secret_key: z.string(),
+        email: z.string().email(),
+    })
+
+    const { secret_key, email } = jwtSchema.parse(request.body)
+
+    if (!secret_key || !email) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const token = jwt.sign({ email }, secret_key, {expiresIn: "1h"})
+    return reply.status(200).send({ token })
+})
+
+app.post('/verifica-jwt', async (request, reply) => {
+    const jwtSchema = z.object({
+        secret_key: z.string(),
+        token: z.string(),
+    })
+
+    const { secret_key, token } = jwtSchema.parse(request.body)
+
+    if (!token) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    try {
+        jwt.verify(token, secret_key);
+        return reply.status(200).send({ message: 'Token válido' });
+    } catch (error) {
+        console.log(error);
+        return reply.status(403).send({ error: 'Token inválido' });
+    }
+})
+
 //calculaSaldo functions
 async function calculaGastos(id: number){
     const gastos = await prisma.transactions.findMany({
